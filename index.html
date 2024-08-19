@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>User Management</h1>
+    <div id="user-form">
+        <input type="text" id="full-name" placeholder="Enter full name" />
+        <input type="text" id="username" placeholder="Enter username" />
+        <button onclick="addUser()">Add User</button>
+    </div>
+    <div id="user-list">
+        <h2>Users</h2>
+        <ul id="user-list-ul"></ul>
+    </div>
+    <div id="user-actions" style="display: none;">
+        <input type="text" id="update-full-name" placeholder="Update full name" />
+        <input type="text" id="update-username" placeholder="Update username" />
+        <button onclick="updateUser()">Update User</button>
+        <button onclick="deleteUser()">Delete User</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

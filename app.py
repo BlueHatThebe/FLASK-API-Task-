@@ -109,7 +109,8 @@ def get_users():
     return jsonify(users)
 
 @app.route('/update-user/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
+def update_user_by_id(user_id):
+    # Get the new details from the request body
     data = request.json
     new_full_name = data.get('fullName')
     new_username = data.get('username')
@@ -121,13 +122,67 @@ def update_user(user_id):
         conn = get_db_connection()
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE users SET fullName = ?, username = ? WHERE id = ?' if os.getenv('TESTING')
-            else 'UPDATE users SET fullName = %s, username = %s WHERE id = %s',
-            (new_full_name, new_username, user_id)
-        )
+
+        # Prepare the update query
+        query = '''
+            UPDATE users
+            SET fullName = %s, username = %s
+            WHERE id = %s
+        ''' if not os.getenv('TESTING') else '''
+            UPDATE users
+            SET fullName = ?, username = ?
+            WHERE id = ?
+        '''
+        
+        # Execute the update query
+        cursor.execute(query, (new_full_name, new_username, user_id))
+        
         if cursor.rowcount == 0:
             return jsonify({'error': 'User not found'}), 404
+        
+        conn.commit()
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    return '', 204
+
+@app.route('/update-user', methods=['PUT'])
+def update_user_by_name():
+    # Get the old name from query parameters
+    old_name = request.args.get('oldName')
+    # Get the new details from the request body
+    data = request.json
+    new_full_name = data.get('fullName')
+    new_username = data.get('username')
+
+    if not old_name or not new_full_name or not new_username:
+        return jsonify({'error': 'Old name, new full name, and new username are required'}), 400
+
+    try:
+        conn = get_db_connection()
+        create_schema(conn)  # Ensure schema is created for each connection
+        cursor = conn.cursor()
+
+        # Prepare the update query
+        query = '''
+            UPDATE users
+            SET fullName = %s, username = %s
+            WHERE username = %s
+        ''' if not os.getenv('TESTING') else '''
+            UPDATE users
+            SET fullName = ?, username = ?
+            WHERE username = ?
+        '''
+        
+        # Execute the update query
+        cursor.execute(query, (new_full_name, new_username, old_name))
+        
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'User with the old name not found'}), 404
+        
         conn.commit()
     except Error as e:
         return jsonify({'error': str(e)}), 500

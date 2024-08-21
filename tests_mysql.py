@@ -21,7 +21,7 @@ class UserManagementTestCase(unittest.TestCase):
 
     def test_add_user(self):
         response = self._add_test_user('John Doe', 'johndoe')
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)  # Updated to 201
         data = json.loads(response.data)
         self.assertIn('id', data)
         self.assertEqual(data['fullName'], 'John Doe')
@@ -69,7 +69,7 @@ class UserManagementTestCase(unittest.TestCase):
         # Adding a user first
         user_data = self._add_test_user('Jane Doe', 'janedoe')
         user_id = json.loads(user_data.data)['id']
-        response = self.app.delete(f'/delete-user/{user_id}')
+        response = self.app.delete(f'/delete-user?id={user_id}')
         self.assertEqual(response.status_code, 204)
 
         # Verify deletion
@@ -93,10 +93,10 @@ class UserManagementTestCase(unittest.TestCase):
         self.assertEqual(data['error'], 'User not found')
 
     def test_delete_user_not_found(self):
-        response = self.app.delete('/delete-user/999')
+        response = self.app.delete('/delete-user?id=999')
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.data)
-        self.assertEqual(data['status'], 'User not found')
+        self.assertEqual(data, {'status': 'User not found'})  # Updated to match the response
 
 if __name__ == '__main__':
     unittest.main()

@@ -110,7 +110,6 @@ def get_users():
 
 @app.route('/update-user/<int:user_id>', methods=['PUT'])
 def update_user_by_id(user_id):
-    # Get the new details from the request body
     data = request.json
     new_full_name = data.get('fullName')
     new_username = data.get('username')
@@ -123,7 +122,6 @@ def update_user_by_id(user_id):
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor()
 
-        # Prepare the update query
         query = '''
             UPDATE users
             SET fullName = %s, username = %s
@@ -134,7 +132,6 @@ def update_user_by_id(user_id):
             WHERE id = ?
         '''
         
-        # Execute the update query
         cursor.execute(query, (new_full_name, new_username, user_id))
         
         if cursor.rowcount == 0:
@@ -151,9 +148,7 @@ def update_user_by_id(user_id):
 
 @app.route('/update-user', methods=['PUT'])
 def update_user_by_name():
-    # Get the old name from query parameters
     old_name = request.args.get('oldName')
-    # Get the new details from the request body
     data = request.json
     new_full_name = data.get('fullName')
     new_username = data.get('username')
@@ -166,7 +161,6 @@ def update_user_by_name():
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor()
 
-        # Prepare the update query
         query = '''
             UPDATE users
             SET fullName = %s, username = %s
@@ -177,7 +171,6 @@ def update_user_by_name():
             WHERE username = ?
         '''
         
-        # Execute the update query
         cursor.execute(query, (new_full_name, new_username, old_name))
         
         if cursor.rowcount == 0:
@@ -192,19 +185,29 @@ def update_user_by_name():
 
     return '', 204
 
-@app.route('/delete-user/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
+@app.route('/delete-user', methods=['DELETE'])
+def delete_user():
+    user_id = request.args.get('id')
+    username = request.args.get('username')
+
+    if not user_id and not username:
+        return jsonify({'error': 'Either user ID or username is required'}), 400
+
     try:
         conn = get_db_connection()
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor()
-        cursor.execute(
-            'DELETE FROM users WHERE id = ?' if os.getenv('TESTING')
-            else 'DELETE FROM users WHERE id = %s',
-            (user_id,)
-        )
+
+        if user_id:
+            query = 'DELETE FROM users WHERE id = %s' if not os.getenv('TESTING') else 'DELETE FROM users WHERE id = ?'
+            cursor.execute(query, (user_id,))
+        elif username:
+            query = 'DELETE FROM users WHERE username = %s' if not os.getenv('TESTING') else 'DELETE FROM users WHERE username = ?'
+            cursor.execute(query, (username,))
+
         if cursor.rowcount == 0:
             return jsonify({'status': 'User not found'}), 404
+
         conn.commit()
     except Error as e:
         return jsonify({'error': str(e)}), 500

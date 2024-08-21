@@ -33,6 +33,8 @@ class UserManagementTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         data = json.loads(response.data)
         self.assertIn('id', data)  # Ensure 'id' is present in the response
+        self.assertEqual(data['fullName'], 'John Doe')
+        self.assertEqual(data['username'], 'jdoe')
 
     def test_get_users(self):
         # Add a user to the database
@@ -66,11 +68,23 @@ class UserManagementTests(unittest.TestCase):
         user_data = json.loads(user_response.data)
         user_id = user_data['id']  # Extract user id
 
-        response = self.app.delete(f'/delete-user/{user_id}')
+        response = self.app.delete('/delete-user', query_string={'id': user_id})
         self.assertEqual(response.status_code, 204)
 
         # Verify the user was deleted
         response = self.app.get('/users', query_string={'id': user_id})
+        self.assertEqual(response.status_code, 404)  # Should return 404 if user was deleted
+
+    def test_delete_user_by_username(self):
+        # Add a user first
+        user_response = self.app.post('/add-user', json={'fullName': 'Jane Doe', 'username': 'janedoe'})
+        self.assertEqual(user_response.status_code, 201)
+        
+        response = self.app.delete('/delete-user', query_string={'username': 'janedoe'})
+        self.assertEqual(response.status_code, 204)
+
+        # Verify the user was deleted
+        response = self.app.get('/users', query_string={'username': 'janedoe'})
         self.assertEqual(response.status_code, 404)  # Should return 404 if user was deleted
 
 if __name__ == '__main__':

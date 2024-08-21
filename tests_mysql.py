@@ -21,7 +21,7 @@ class UserManagementTestCase(unittest.TestCase):
 
     def test_add_user(self):
         response = self._add_test_user('John Doe', 'johndoe')
-        self.assertEqual(response.status_code, 201)  # Updated to 201
+        self.assertEqual(response.status_code, 201)
         data = json.loads(response.data)
         self.assertIn('id', data)
         self.assertEqual(data['fullName'], 'John Doe')
@@ -36,7 +36,6 @@ class UserManagementTestCase(unittest.TestCase):
         response = self.app.get('/users', query_string={'fullName': 'Jane Doe'})
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
-        print(f"Users data received: {data}")  # Print to debug what data is being returned
         self.assertGreater(len(data), 0)  # Check that some users are returned
         self.assertTrue(any(user['fullName'] == 'Jane Doe' and user['username'] == 'janedoe' for user in data))
 
@@ -96,7 +95,7 @@ class UserManagementTestCase(unittest.TestCase):
         response = self.app.delete('/delete-user?id=999')
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.data)
-        self.assertEqual(data, {'status': 'User not found'})  # Updated to match the response
+        self.assertEqual(data, {'status': 'User not found'})
 
 if __name__ == '__main__':
     unittest.main()

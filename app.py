@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import mysql.connector
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from mysql.connector import Error
 from flask_cors import CORS
 
@@ -10,7 +10,7 @@ CORS(app)  # Enable CORS for cross-origin requests
 
 def get_db_connection():
     if os.getenv('TESTING'):
-        return sqlite3.connect(':memory:')
+        return sqlite3.connect('sqlite.db')
     else:
         return mysql.connector.connect(
             host='localhost',
@@ -45,6 +45,13 @@ def initialize_db():
     create_schema(conn)
     conn.close()
 
+@app.route("/", defaults={"filename":""})
+@app.route("/<path:filename>")
+def home(filename):
+    if not filename:
+        filename = "index.html"
+    return send_from_directory(os.getcwd(), filename), 200
+
 @app.route('/add-user', methods=['POST'])
 def add_user():
     data = request.json
@@ -58,10 +65,8 @@ def add_user():
         conn = get_db_connection()
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor()
-        if os.getenv('TESTING'):
-            cursor.execute('INSERT INTO users (fullName, username) VALUES (?, ?)', (full_name, username))
-        else:
-            cursor.execute('INSERT INTO users (fullName, username) VALUES (%s, %s)', (full_name, username))
+        query = 'INSERT INTO users (fullName, username) VALUES (%s, %s)' if not os.getenv('TESTING') else 'INSERT INTO users (fullName, username) VALUES (?, ?)'
+        cursor.execute(query, (full_name, username))
         conn.commit()
         user_id = cursor.lastrowid
     except Error as e:
@@ -74,30 +79,24 @@ def add_user():
 
 @app.route('/users', methods=['GET'])
 def get_users():
-    user_id = request.args.get('id')
-    full_name = request.args.get('fullName')
-    username = request.args.get('username')
-
-    query = 'SELECT * FROM users WHERE 1=1'
-    params = []
-
-    if user_id:
-        query += ' AND id = ?' if os.getenv('TESTING') else ' AND id = %s'
-        params.append(user_id)
-    if full_name:
-        query += ' AND fullName LIKE ?' if os.getenv('TESTING') else ' AND fullName LIKE %s'
-        params.append(f'%{full_name}%')
-    if username:
-        query += ' AND username LIKE ?' if os.getenv('TESTING') else ' AND username LIKE %s'
-        params.append(f'%{username}%')
-
     try:
         conn = get_db_connection()
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor(dictionary=True) if not os.getenv('TESTING') else conn.cursor()
-        cursor.execute(query, params)
-        users = cursor.fetchall()
+        full_name = request.args.get('fullName')
+        user_id = request.args.get('id')
 
+        if full_name:
+            query = 'SELECT * FROM users WHERE fullName = %s' if not os.getenv('TESTING') else 'SELECT * FROM users WHERE fullName = ?'
+            cursor.execute(query, (full_name,))
+        elif user_id:
+            query = 'SELECT * FROM users WHERE id = %s' if not os.getenv('TESTING') else 'SELECT * FROM users WHERE id = ?'
+            cursor.execute(query, (user_id,))
+        else:
+            query = 'SELECT * FROM users'
+            cursor.execute(query)
+        
+        users = cursor.fetchall()
         if not users:
             return jsonify([]), 404
     except Error as e:
@@ -107,6 +106,44 @@ def get_users():
         conn.close()
 
     return jsonify(users)
+
+@app.route('/update-user-by-username', methods=['PUT'])
+def update_user_by_username():
+    old_username = request.args.get('oldUsername')
+    data = request.json
+    new_full_name = data.get('fullName')
+    new_username = data.get('username')
+
+    if not old_username or not new_full_name or not new_username:
+        return jsonify({'error': 'Old username, new full name, and new username are required'}), 400
+
+    try:
+        conn = get_db_connection()
+        create_schema(conn)  # Ensure schema is created for each connection
+        cursor = conn.cursor()
+
+        query = '''
+            UPDATE users
+            SET fullName = %s, username = %s
+            WHERE username = %s
+        ''' if not os.getenv('TESTING') else '''
+            UPDATE users
+            SET fullName = ?, username = ?
+            WHERE username = ?
+        '''
+        cursor.execute(query, (new_full_name, new_username, old_username))
+        
+        if cursor.rowcount == 0:
+            return jsonify({'error': 'User with the old username not found'}), 404
+
+        conn.commit()
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+    return '', 204
 
 @app.route('/update-user/<int:user_id>', methods=['PUT'])
 def update_user_by_id(user_id):
@@ -131,51 +168,11 @@ def update_user_by_id(user_id):
             SET fullName = ?, username = ?
             WHERE id = ?
         '''
-        
         cursor.execute(query, (new_full_name, new_username, user_id))
         
         if cursor.rowcount == 0:
             return jsonify({'error': 'User not found'}), 404
-        
-        conn.commit()
-    except Error as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
 
-    return '', 204
-
-@app.route('/update-user', methods=['PUT'])
-def update_user_by_name():
-    old_name = request.args.get('oldName')
-    data = request.json
-    new_full_name = data.get('fullName')
-    new_username = data.get('username')
-
-    if not old_name or not new_full_name or not new_username:
-        return jsonify({'error': 'Old name, new full name, and new username are required'}), 400
-
-    try:
-        conn = get_db_connection()
-        create_schema(conn)  # Ensure schema is created for each connection
-        cursor = conn.cursor()
-
-        query = '''
-            UPDATE users
-            SET fullName = %s, username = %s
-            WHERE username = %s
-        ''' if not os.getenv('TESTING') else '''
-            UPDATE users
-            SET fullName = ?, username = ?
-            WHERE username = ?
-        '''
-        
-        cursor.execute(query, (new_full_name, new_username, old_name))
-        
-        if cursor.rowcount == 0:
-            return jsonify({'error': 'User with the old name not found'}), 404
-        
         conn.commit()
     except Error as e:
         return jsonify({'error': str(e)}), 500
@@ -197,17 +194,14 @@ def delete_user():
         conn = get_db_connection()
         create_schema(conn)  # Ensure schema is created for each connection
         cursor = conn.cursor()
-
         if user_id:
             query = 'DELETE FROM users WHERE id = %s' if not os.getenv('TESTING') else 'DELETE FROM users WHERE id = ?'
             cursor.execute(query, (user_id,))
         elif username:
             query = 'DELETE FROM users WHERE username = %s' if not os.getenv('TESTING') else 'DELETE FROM users WHERE username = ?'
             cursor.execute(query, (username,))
-
         if cursor.rowcount == 0:
             return jsonify({'status': 'User not found'}), 404
-
         conn.commit()
     except Error as e:
         return jsonify({'error': str(e)}), 500

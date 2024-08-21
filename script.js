@@ -2,6 +2,10 @@ const apiUrl = 'http://localhost:5000';
 let users = {};
 let currentUserId = null;
 
+document.addEventListener('DOMContentLoaded', function() {
+    updateUserList();
+});
+
 async function addUser() {
     const fullName = document.getElementById('full-name').value.trim();
     const username = document.getElementById('username').value.trim();
@@ -15,7 +19,7 @@ async function addUser() {
         });
         if (!response.ok) throw new Error('Failed to add user');
         const user = await response.json();
-        users[user.id] = { fullName, username };
+        users[user.id] = { fullName: user.fullName, username: user.username };
         updateUserList();
         clearForm();
     } catch (error) {
@@ -29,13 +33,13 @@ async function updateUser() {
 
     const newFullName = document.getElementById('update-full-name').value.trim();
     const newUsername = document.getElementById('update-username').value.trim();
-    if (!newFullName || !newUsername) return alert('Both full name and username are required');
+    if (!newFullName || !newUsername) return alert('Both new full name and new username are required');
 
     try {
-        const response = await fetch(`${apiUrl}/update-user`, {
-            method: 'POST',
+        const response = await fetch(`${apiUrl}/update-user/${currentUserId}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: currentUserId, fullName: newFullName, username: newUsername })
+            body: JSON.stringify({ fullName: newFullName, username: newUsername })
         });
         if (!response.ok) throw new Error('Failed to update user');
         users[currentUserId] = { fullName: newFullName, username: newUsername };
@@ -49,14 +53,35 @@ async function updateUser() {
     }
 }
 
+async function updateUserByUsername() {
+    const oldUsername = document.getElementById('old-username').value.trim();
+    const newFullName = document.getElementById('update-full-name').value.trim();
+    const newUsername = document.getElementById('update-username').value.trim();
+
+    if (!oldUsername || !newFullName || !newUsername) return alert('Old username, new full name, and new username are required');
+
+    try {
+        const response = await fetch(`${apiUrl}/update-user-by-username?oldUsername=${encodeURIComponent(oldUsername)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fullName: newFullName, username: newUsername })
+        });
+        if (!response.ok) throw new Error('Failed to update user');
+        updateUserList();
+        clearForm();
+        document.getElementById('user-actions').style.display = 'none';
+    } catch (error) {
+        console.error('Error updating user:', error);
+        alert('Error updating user. Please try again.');
+    }
+}
+
 async function deleteUser() {
     if (currentUserId === null) return alert('No user selected');
 
     try {
-        const response = await fetch(`${apiUrl}/delete-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: currentUserId })
+        const response = await fetch(`${apiUrl}/delete-user?id=${currentUserId}`, {
+            method: 'DELETE'
         });
         if (!response.ok) throw new Error('Failed to delete user');
         delete users[currentUserId];
@@ -82,15 +107,20 @@ async function updateUserList() {
         users = {};
 
         for (const user of userList) {
-            users[user.id] = { fullName: user.fullName, username: user.username };
-            const li = document.createElement('li');
-            li.textContent = `${user.fullName} (${user.username}) - ID: ${user.id}`;
-            li.onclick = () => selectUser(user.id);
-            ul.appendChild(li);
+            if (user.id && user.fullName && user.username) {
+                users[user.id] = { fullName: user.fullName, username: user.username };
+                const li = document.createElement('li');
+                li.textContent = `${user.fullName} (${user.username}) - ID: ${user.id}`;
+                li.onclick = () => selectUser(user.id);
+                ul.appendChild(li);
+            } else {
+                console.error('Invalid user data:', user);
+            }
         }
+        document.getElementById("no-users").style.display = userList.length ? 'none' : 'block';
     } catch (error) {
-        console.error('Error fetching users:', error);
-        alert('Error fetching user list. Please try again.');
+        console.error('Error updating user list:', error);
+        document.getElementById("no-users").innerHTML = "No users found";
     }
 }
 
@@ -106,4 +136,5 @@ function clearForm() {
     document.getElementById('username').value = '';
     document.getElementById('update-full-name').value = '';
     document.getElementById('update-username').value = '';
+    document.getElementById('old-username').value = ''; // Ensure old-username field is cleared
 }

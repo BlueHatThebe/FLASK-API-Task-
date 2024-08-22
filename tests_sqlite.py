@@ -49,15 +49,18 @@ class UserManagementTests(unittest.TestCase):
         user_response = self.app.post('/add-user', json={'fullName': 'Jane Doe', 'username': 'janedoe'})
         self.assertEqual(user_response.status_code, 201)
         user_data = json.loads(user_response.data)
-        user_id = user_data['id']  # Extract user id
+        user_id = user_data['id']
 
-        response = self.app.put(f'/update-user/{user_id}', json={'fullName': 'Jane Smith', 'username': 'janesmith'})
+        # Update the user
+        response = self.app.put('/update-user', query_string={'id': user_id, 'oldName': 'Jane Doe'}, json={'fullName': 'Jane Smith', 'username': 'janesmith'})
         self.assertEqual(response.status_code, 204)
 
         # Verify the user was updated
         response = self.app.get('/users', query_string={'id': user_id})
         self.assertEqual(response.status_code, 200)
-        updated_user = json.loads(response.data)[0]
+        users = json.loads(response.data)
+        self.assertEqual(len(users), 1)  # Ensure only 1 user is returned
+        updated_user = users[0]  # Get the first (and only) user
         self.assertEqual(updated_user['fullName'], 'Jane Smith')
         self.assertEqual(updated_user['username'], 'janesmith')
 
@@ -66,8 +69,9 @@ class UserManagementTests(unittest.TestCase):
         user_response = self.app.post('/add-user', json={'fullName': 'John Doe', 'username': 'jdoe'})
         self.assertEqual(user_response.status_code, 201)
         user_data = json.loads(user_response.data)
-        user_id = user_data['id']  # Extract user id
+        user_id = user_data['id']
 
+        # Delete the user
         response = self.app.delete('/delete-user', query_string={'id': user_id})
         self.assertEqual(response.status_code, 204)
 
@@ -79,7 +83,8 @@ class UserManagementTests(unittest.TestCase):
         # Add a user first
         user_response = self.app.post('/add-user', json={'fullName': 'Jane Doe', 'username': 'janedoe'})
         self.assertEqual(user_response.status_code, 201)
-        
+
+        # Delete the user by username
         response = self.app.delete('/delete-user', query_string={'username': 'janedoe'})
         self.assertEqual(response.status_code, 204)
 

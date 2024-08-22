@@ -17,7 +17,10 @@ async function addUser() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fullName, username })
         });
-        if (!response.ok) throw new Error('Failed to add user');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to add user');
+        }
         const user = await response.json();
         users[user.id] = { fullName: user.fullName, username: user.username };
         updateUserList();
@@ -41,35 +44,15 @@ async function updateUser() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fullName: newFullName, username: newUsername })
         });
-        if (!response.ok) throw new Error('Failed to update user');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update user');
+        }
         users[currentUserId] = { fullName: newFullName, username: newUsername };
         updateUserList();
         clearForm();
         document.getElementById('user-actions').style.display = 'none';
         currentUserId = null;
-    } catch (error) {
-        console.error('Error updating user:', error);
-        alert('Error updating user. Please try again.');
-    }
-}
-
-async function updateUserByUsername() {
-    const oldUsername = document.getElementById('old-username').value.trim();
-    const newFullName = document.getElementById('update-full-name').value.trim();
-    const newUsername = document.getElementById('update-username').value.trim();
-
-    if (!oldUsername || !newFullName || !newUsername) return alert('Old username, new full name, and new username are required');
-
-    try {
-        const response = await fetch(`${apiUrl}/update-user-by-username?oldUsername=${encodeURIComponent(oldUsername)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fullName: newFullName, username: newUsername })
-        });
-        if (!response.ok) throw new Error('Failed to update user');
-        updateUserList();
-        clearForm();
-        document.getElementById('user-actions').style.display = 'none';
     } catch (error) {
         console.error('Error updating user:', error);
         alert('Error updating user. Please try again.');
@@ -83,7 +66,10 @@ async function deleteUser() {
         const response = await fetch(`${apiUrl}/delete-user?id=${currentUserId}`, {
             method: 'DELETE'
         });
-        if (!response.ok) throw new Error('Failed to delete user');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete user');
+        }
         delete users[currentUserId];
         updateUserList();
         clearForm();
@@ -98,37 +84,59 @@ async function deleteUser() {
 async function updateUserList() {
     try {
         const response = await fetch(`${apiUrl}/users`);
-        if (!response.ok) throw new Error('Failed to fetch users');
-        const userList = await response.json();
-        const ul = document.getElementById('user-list-ul');
-        ul.innerHTML = ''; // Clear the list
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to fetch users');
+        }
 
-        // Clear the local users object
-        users = {};
+        const usersArray = await response.json();
+        users = {};  // Clear existing users
+        const ul = document.getElementById('user-list');
+        ul.innerHTML = ''; // Clear existing list
 
-        for (const user of userList) {
+        if (usersArray.length === 0) {
+            document.getElementById('no-users').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('no-users').style.display = 'none';
+
+        for (const user of usersArray) {
             if (user.id && user.fullName && user.username) {
                 users[user.id] = { fullName: user.fullName, username: user.username };
                 const li = document.createElement('li');
-                li.textContent = `${user.fullName} (${user.username}) - ID: ${user.id}`;
-                li.onclick = () => selectUser(user.id);
+                li.textContent = `${user.fullName} (@${user.username})`;
+                li.addEventListener('click', () => selectUser(user.id));
                 ul.appendChild(li);
             } else {
                 console.error('Invalid user data:', user);
             }
         }
-        document.getElementById("no-users").style.display = userList.length ? 'none' : 'block';
     } catch (error) {
         console.error('Error updating user list:', error);
-        document.getElementById("no-users").innerHTML = "No users found";
+        document.getElementById('no-users').textContent = "No users found";
+        document.getElementById('no-users').style.display = 'block';
     }
 }
 
-function selectUser(userId) {
-    currentUserId = userId;
-    document.getElementById('update-full-name').value = users[userId].fullName;
-    document.getElementById('update-username').value = users[userId].username;
-    document.getElementById('user-actions').style.display = 'block';
+function selectUser(id) {
+    // Clear previously selected item
+    const ul = document.getElementById('user-list');
+    const items = ul.querySelectorAll('li');
+    items.forEach(item => item.classList.remove('selected'));
+
+    if (users[id]) {
+        document.getElementById('update-full-name').value = users[id].fullName;
+        document.getElementById('update-username').value = users[id].username;
+        document.getElementById('user-actions').style.display = 'block';
+        currentUserId = id;
+
+        // Add underline to the selected user
+        const selectedItem = Array.from(items).find(item => item.textContent.includes(users[id].fullName));
+        if (selectedItem) {
+            selectedItem.classList.add('selected');
+        }
+    }
 }
 
 function clearForm() {
@@ -136,5 +144,4 @@ function clearForm() {
     document.getElementById('username').value = '';
     document.getElementById('update-full-name').value = '';
     document.getElementById('update-username').value = '';
-    document.getElementById('old-username').value = ''; // Ensure old-username field is cleared
 }

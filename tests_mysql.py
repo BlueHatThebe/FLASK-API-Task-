@@ -40,7 +40,7 @@ class UserManagementTestCase(unittest.TestCase):
         self.assertTrue(any(user['fullName'] == 'Jane Doe' and user['username'] == 'janedoe' for user in data))
 
         # Query by user ID
-        response = self.app.get(f'/users?id={user_id}')
+        response = self.app.get('/users', query_string={'id': user_id})
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(len(data), 1)
@@ -51,13 +51,16 @@ class UserManagementTestCase(unittest.TestCase):
         # Adding a user first
         user_data = self._add_test_user('Jane Doe', 'janedoe')
         user_id = json.loads(user_data.data)['id']
-        response = self.app.put(f'/update-user/{user_id}',
+
+        # Update the user
+        response = self.app.put('/update-user',
+                                query_string={'id': user_id, 'oldName': 'Jane Doe'},
                                 data=json.dumps({'fullName': 'Jane Smith', 'username': 'janesmith'}),
                                 content_type='application/json')
         self.assertEqual(response.status_code, 204)
 
-        # Verify update
-        response = self.app.get(f'/users?id={user_id}')
+        # Verify the update
+        response = self.app.get('/users', query_string={'id': user_id})
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(len(data), 1)
@@ -68,11 +71,13 @@ class UserManagementTestCase(unittest.TestCase):
         # Adding a user first
         user_data = self._add_test_user('Jane Doe', 'janedoe')
         user_id = json.loads(user_data.data)['id']
-        response = self.app.delete(f'/delete-user?id={user_id}')
+
+        # Delete the user
+        response = self.app.delete('/delete-user', query_string={'id': user_id})
         self.assertEqual(response.status_code, 204)
 
-        # Verify deletion
-        response = self.app.get(f'/users?id={user_id}')
+        # Verify the deletion
+        response = self.app.get('/users', query_string={'id': user_id})
         self.assertEqual(response.status_code, 404)
 
     def test_add_user_missing_data(self):
@@ -84,15 +89,16 @@ class UserManagementTestCase(unittest.TestCase):
         self.assertEqual(data['error'], 'Both full name and username are required')
 
     def test_update_user_not_found(self):
-        response = self.app.put('/update-user/999',
+        response = self.app.put('/update-user',
+                                query_string={'id': '999', 'oldName': 'Nonexistent'},
                                 data=json.dumps({'fullName': 'Jane Smith', 'username': 'janesmith'}),
                                 content_type='application/json')
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.data)
-        self.assertEqual(data['error'], 'User not found')
+        self.assertEqual(data['error'], 'User not found or no changes made')
 
     def test_delete_user_not_found(self):
-        response = self.app.delete('/delete-user?id=999')
+        response = self.app.delete('/delete-user', query_string={'id': '999'})
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.data)
         self.assertEqual(data, {'status': 'User not found'})

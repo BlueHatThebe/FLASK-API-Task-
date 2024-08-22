@@ -4,27 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management</title>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        #user-actions {
+            display: none;
+        }
+        #no-users {
+            display: none;
+        }
+        .selected {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
     <h1>User Management</h1>
-    <div id="user-form">
-        <input type="text" id="full-name" placeholder="Enter full name" />
-        <input type="text" id="username" placeholder="Enter username" />
+
+    <!-- Add User Section -->
+    <div>
+        <h2>Add User</h2>
+        <input type="text" id="full-name" placeholder="Full Name">
+        <input type="text" id="username" placeholder="Username">
         <button onclick="addUser()">Add User</button>
     </div>
-    <div id="user-list">
-        <h2>Users</h2>
-        <ul id="user-list-ul"></ul>
-        <p id="no-users"></p>
-    </div>
-    <div id="user-actions" style="display: none;">
-        <input type="text" id="update-full-name" placeholder="Update full name" />
-        <input type="text" id="update-username" placeholder="Update username" />
+
+    <!-- User Actions Section -->
+    <div id="user-actions">
+        <h2>Update User</h2>
+        <input type="text" id="update-full-name" placeholder="New Full Name">
+        <input type="text" id="update-username" placeholder="New Username">
         <button onclick="updateUser()">Update User</button>
         <button onclick="deleteUser()">Delete User</button>
     </div>
 
+    <!-- User List Section -->
+    <h2>Users</h2>
+    <ul id="user-list"></ul>
+    <div id="no-users">No users found</div>
+
+    <!-- Link to JavaScript file -->
     <script src="script.js"></script>
 </body>
 </html>
+
